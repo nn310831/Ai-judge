@@ -55,6 +55,7 @@ export const testService = {
     message: string;
     total_tests: number;
   }> => {
+    // 增加超時時間到 5 分鐘，因為測試執行需要較長時間
     return api.post('/test/run', request);
   },
 

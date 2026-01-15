@@ -28,7 +28,6 @@ const CATEGORIES: AttackCategory[] = [
   'scenario',
   'encoding',
   'multilingual',
-  'all',
 ];
 
 export const Testing: React.FC = () => {
@@ -36,6 +35,7 @@ export const Testing: React.FC = () => {
   const [filteredAttacks, setFilteredAttacks] = useState<AttackPrompt[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<AttackCategory | 'all'>('all');
   const [selectedAttacks, setSelectedAttacks] = useState<Set<string>>(new Set());
+  const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -69,6 +69,8 @@ export const Testing: React.FC = () => {
       ]);
       setAttacks(attacksData);
       setLoadedModels(modelsData.models);
+      // 預設選擇所有模型
+      setSelectedModels(new Set(modelsData.models.map((m: any) => m.model_name)));
     } catch (err) {
       console.error('Failed to load data:', err);
     } finally {
@@ -88,6 +90,7 @@ export const Testing: React.FC = () => {
   const handleGenerateAttacks = async () => {
     setGenerating(true);
     try {
+      console.log('發送請求:', { category: genCategory, count: genCount, use_llm: useLLM });
       const result = await attackService.generateAttacks({
         category: genCategory,
         count: genCount,
@@ -99,7 +102,8 @@ export const Testing: React.FC = () => {
         alert(`成功生成 ${result.total} 個攻擊提示詞`);
       }
     } catch (err: any) {
-      alert('生成失敗: ' + err.message);
+      console.error('生成攻擊失敗:', err);
+      alert('生成失敗: ' + (err.message || JSON.stringify(err)));
     } finally {
       setGenerating(false);
     }
@@ -108,6 +112,11 @@ export const Testing: React.FC = () => {
   const handleRunTest = async () => {
     if (loadedModels.length === 0) {
       alert('請先載入模型');
+      return;
+    }
+
+    if (selectedModels.size === 0) {
+      alert('請至少選擇一個模型');
       return;
     }
 
@@ -123,14 +132,27 @@ export const Testing: React.FC = () => {
 
     setTesting(true);
     try {
+      console.log('執行測試:', {
+        attacks: attacksToTest.length,
+        models: Array.from(selectedModels),
+      });
+      
       const result = await testService.runTest({
         attacks: attacksToTest,
+        model_names: Array.from(selectedModels),
       });
 
-      alert(`測試已開始\nTest ID: ${result.test_id}\n總測試數: ${result.total_tests}`);
+      console.log('測試已開始:', result);
+      alert(`測試已開始\nTest ID: ${result.test_id}\n總測試數: ${result.total_tests}\n\n測試在後台執行中，請查看「執行中的測試」區塊`);
       await loadActiveTests();
     } catch (err: any) {
-      alert('執行測試失敗: ' + err.message);
+      console.error('執行測試失敗:', err);
+      
+      if (err.code === 'ECONNABORTED') {
+        alert('測試請求超時。\n\n但測試可能已在後台開始執行，請稍後刷新頁面查看結果。');
+      } else {
+        alert('執行測試失敗: ' + (err.message || JSON.stringify(err)));
+      }
     } finally {
       setTesting(false);
     }
@@ -152,6 +174,24 @@ export const Testing: React.FC = () => {
 
   const clearSelection = () => {
     setSelectedAttacks(new Set());
+  };
+
+  const toggleModelSelection = (modelName: string) => {
+    const newSelection = new Set(selectedModels);
+    if (newSelection.has(modelName)) {
+      newSelection.delete(modelName);
+    } else {
+      newSelection.add(modelName);
+    }
+    setSelectedModels(newSelection);
+  };
+
+  const selectAllModels = () => {
+    setSelectedModels(new Set(loadedModels.map((m) => m.model_name)));
+  };
+
+  const clearModelSelection = () => {
+    setSelectedModels(new Set());
   };
 
   const getCategoryStats = () => {
@@ -193,6 +233,13 @@ export const Testing: React.FC = () => {
           />
         </div>
         <div className="status-item">
+          <span className="status-label">已選擇模型:</span>
+          <StatusBadge
+            status={selectedModels.size > 0 ? 'success' : 'warning'}
+            label={`${selectedModels.size} 個`}
+          />
+        </div>
+        <div className="status-item">
           <span className="status-label">攻擊總數:</span>
           <StatusBadge status="info" label={`${attacks.length} 個`} />
         </div>
@@ -221,11 +268,13 @@ export const Testing: React.FC = () => {
                   value={genCategory}
                   onChange={(e) => setGenCategory(e.target.value as AttackCategory)}
                 >
-                  <option value="harmful_content">有害內容</option>
-                  <option value="bias_discrimination">偏見歧視</option>
-                  <option value="privacy_violation">隱私侵犯</option>
-                  <option value="misinformation">錯誤資訊</option>
-                  <option value="manipulation">操縱行為</option>
+                  <option value="prompt_injection">提示詞注入</option>
+                  <option value="jailbreak">越獄</option>
+                  <option value="roleplay">角色扮演</option>
+                  <option value="scenario">場景模擬</option>
+                  <option value="encoding">編碼攻擊</option>
+                  <option value="multilingual">多語言</option>
+                  <option value="all">所有類別</option>
                 </select>
               </div>
 
@@ -271,6 +320,56 @@ export const Testing: React.FC = () => {
             </Button>
           </div>
         </Card>
+      </section>
+
+      {/* Model Selection */}
+      <section className="testing-section">
+        <div className="section-header">
+          <h2>選擇測試模型</h2>
+          <div className="section-actions">
+            <Button variant="secondary" size="sm" onClick={selectAllModels}>
+              全選
+            </Button>
+            <Button variant="secondary" size="sm" onClick={clearModelSelection}>
+              <Trash2 size={16} />
+              清除選擇
+            </Button>
+          </div>
+        </div>
+
+        {loadedModels.length === 0 ? (
+          <Card className="empty-state">
+            <AlertCircle size={48} />
+            <h3>尚未載入模型</h3>
+            <p>請在設定頁面配置並載入模型</p>
+          </Card>
+        ) : (
+          <div className="models-grid">
+            {loadedModels.map((model: any) => (
+              <Card
+                key={model.model_name}
+                className={`model-select-card ${
+                  selectedModels.has(model.model_name) ? 'selected' : ''
+                }`}
+                onClick={() => toggleModelSelection(model.model_name)}
+              >
+                <div className="model-select-header">
+                  <div className="model-checkbox">
+                    {selectedModels.has(model.model_name) && <CheckCircle size={20} />}
+                  </div>
+                  <div className="model-info">
+                    <h3 className="model-name">{model.model_name}</h3>
+                    <div className="model-meta">
+                      <StatusBadge status="info" label={model.provider} />
+                      <span className="model-param">temp: {model.temperature}</span>
+                      <span className="model-param">tokens: {model.max_tokens}</span>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Active Tests */}

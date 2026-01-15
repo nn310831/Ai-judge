@@ -145,10 +145,31 @@ class StateManager:
     def list_all_tests(self) -> List[Dict[str, Any]]:
         """列出所有測試"""
         all_tests = []
+        seen_ids = set()
         
-        for test_id in list(self.test_results.keys()) + list(self.active_tests.keys()):
-            test = self.test_results.get(test_id) or self.active_tests.get(test_id)
-            if test:
+        # 先從 test_results 取得已完成的測試
+        for test_id, test in self.test_results.items():
+            if test_id not in seen_ids:
+                seen_ids.add(test_id)
+                total = test["total_tests"]
+                completed = test["completed"]
+                progress = int((completed / total * 100)) if total > 0 else 0
+                
+                all_tests.append({
+                    "test_id": test_id,
+                    "status": test["status"],
+                    "progress": progress,
+                    "current": completed,
+                    "total": total,
+                    "message": f"已完成 {completed}/{total} 個測試",
+                    "start_time": test.get("created_at"),
+                    "end_time": test.get("completed_at")
+                })
+        
+        # 再從 active_tests 取得還在執行的測試（避免重複）
+        for test_id, test in self.active_tests.items():
+            if test_id not in seen_ids:
+                seen_ids.add(test_id)
                 total = test["total_tests"]
                 completed = test["completed"]
                 progress = int((completed / total * 100)) if total > 0 else 0

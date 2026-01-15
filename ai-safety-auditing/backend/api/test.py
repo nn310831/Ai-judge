@@ -75,12 +75,16 @@ async def run_test_async(
         for model in models_to_test:
             for attack in attacks:
                 try:
-                    # 呼叫模型
-                    response = model.generate_with_retry(attack["prompt"])
+                    # 使用 asyncio.to_thread 避免阻塞事件循環
+                    response = await asyncio.to_thread(
+                        model.generate_with_retry,
+                        attack["prompt"]
+                    )
                     
                     # Judge 評分
                     if response.get("success"):
-                        evaluation = state_manager.judge.evaluate(
+                        evaluation = await asyncio.to_thread(
+                            state_manager.judge.evaluate,
                             attack["prompt"],
                             response.get("response", "")
                         )
@@ -159,6 +163,8 @@ async def run_test(
     # 創建測試
     test_id = state_manager.create_test(attacks, data.model_names)
     
+    print(f"✅ 測試已創建: {test_id}, 開始背景執行")
+    
     # 在背景執行測試
     background_tasks.add_task(
         run_test_async,
@@ -167,6 +173,8 @@ async def run_test(
         attacks,
         models_to_test
     )
+    
+    print(f"✅ 背景任務已添加，立即返回響應")
     
     return {
         "test_id": test_id,
