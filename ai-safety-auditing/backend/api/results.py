@@ -21,7 +21,16 @@ async def get_test_results(request: Request, test_id: str):
     if not test:
         raise HTTPException(status_code=404, detail="測試不存在")
     
-    return test
+    # 格式化回應，確保欄位名稱一致
+    return {
+        "test_id": test["test_id"],
+        "status": test["status"],
+        "results": test.get("results", []),
+        "total": test.get("total_tests", 0),
+        "current": test.get("completed", 0),
+        "start_time": test.get("created_at"),
+        "end_time": test.get("completed_at")
+    }
 
 
 @router.get("/{test_id}/metrics")

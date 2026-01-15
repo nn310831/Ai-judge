@@ -14,6 +14,8 @@ import './Dashboard.css';
 
 export function Dashboard() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const [modelMetrics, setModelMetrics] = useState<Record<string, Metrics>>({});
+  const [selectedModel, setSelectedModel] = useState<string>('overall');
   const [systemState, setSystemState] = useState<SystemState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +46,7 @@ export function Dashboard() {
           const metricsData = await resultsService.getTestMetrics(latestTest.test_id);
           
           setMetrics(metricsData.overall);
+          setModelMetrics(metricsData.by_model || {});
           setSystemState({
             generator: {
               loaded: true,
@@ -148,8 +151,11 @@ export function Dashboard() {
     );
   }
 
-  const asrStatus = metrics.asr > 0.5 ? 'danger' : metrics.asr > 0.3 ? 'warning' : 'success';
-  const avgStatus = getScoreStatus(metrics.average_score);
+  // 根據選擇的模型獲取對應的指標
+  const displayMetrics = selectedModel === 'overall' ? metrics : modelMetrics[selectedModel] || metrics;
+  const asrStatus = displayMetrics.asr > 0.5 ? 'danger' : displayMetrics.asr > 0.3 ? 'warning' : 'success';
+  const avgStatus = getScoreStatus(displayMetrics.average_score);
+  const availableModels = Object.keys(modelMetrics);
 
   return (
     <div className="dashboard">
@@ -159,20 +165,40 @@ export function Dashboard() {
           <h1 className="dashboard-title">Security Dashboard</h1>
           <p className="dashboard-subtitle">Real-time AI safety monitoring and analysis</p>
         </div>
-        <Button onClick={loadDashboardData} variant="secondary">
-          Refresh Data
-        </Button>
+        <div className="dashboard-header-actions">
+          {availableModels.length > 0 && (
+            <div className="model-selector">
+              <label htmlFor="model-select">檢視模型：</label>
+              <select
+                id="model-select"
+                value={selectedModel}
+                onChange={(e) => setSelectedModel(e.target.value)}
+                className="model-select"
+              >
+                <option value="overall">整體數據</option>
+                {availableModels.map((model) => (
+                  <option key={model} value={model}>
+                    {model}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+          <Button onClick={loadDashboardData} variant="secondary">
+            Refresh Data
+          </Button>
+        </div>
       </div>
 
       {/* Key Metrics */}
       <div className="dashboard-metrics">
-        <Card className="metric-card" glow={metrics.asr > 0.5}>
+        <Card className="metric-card" glow={displayMetrics.asr > 0.5}>
           <div className="metric-icon metric-icon-danger">
             <AlertCircle size={24} />
           </div>
           <div className="metric-content">
             <div className="metric-label">Attack Success Rate</div>
-            <div className="metric-value">{(metrics.asr * 100).toFixed(1)}%</div>
+            <div className="metric-value">{(displayMetrics.asr * 100).toFixed(1)}%</div>
             <StatusBadge
               status={asrStatus}
               label={asrStatus === 'danger' ? 'HIGH RISK' : asrStatus === 'warning' ? 'MODERATE' : 'LOW RISK'}
@@ -186,7 +212,7 @@ export function Dashboard() {
           </div>
           <div className="metric-content">
             <div className="metric-label">Average Safety Score</div>
-            <div className="metric-value">{metrics.average_score.toFixed(2)}/5.0</div>
+            <div className="metric-value">{displayMetrics.average_score.toFixed(2)}/5.0</div>
             <StatusBadge
               status={avgStatus}
               label={getScoreLabel(metrics.average_score)}
@@ -200,10 +226,10 @@ export function Dashboard() {
           </div>
           <div className="metric-content">
             <div className="metric-label">Refusal Rate</div>
-            <div className="metric-value">{(metrics.refusal_rate * 100).toFixed(1)}%</div>
+            <div className="metric-value">{(displayMetrics.refusal_rate * 100).toFixed(1)}%</div>
             <StatusBadge
-              status={metrics.refusal_rate > 0.7 ? 'success' : 'warning'}
-              label={metrics.refusal_rate > 0.7 ? 'GOOD' : 'NEEDS IMPROVEMENT'}
+              status={displayMetrics.refusal_rate > 0.7 ? 'success' : 'warning'}
+              label={displayMetrics.refusal_rate > 0.7 ? 'GOOD' : 'NEEDS IMPROVEMENT'}
             />
           </div>
         </Card>
@@ -214,9 +240,9 @@ export function Dashboard() {
           </div>
           <div className="metric-content">
             <div className="metric-label">Total Tests</div>
-            <div className="metric-value">{metrics.total_tests}</div>
+            <div className="metric-value">{displayMetrics.total_tests}</div>
             <div className="metric-meta">
-              Median: {metrics.median_score} | σ: {metrics.std_deviation.toFixed(2)}
+              Median: {displayMetrics.median_score} | σ: {displayMetrics.std_deviation.toFixed(2)}
             </div>
           </div>
         </Card>
@@ -225,12 +251,81 @@ export function Dashboard() {
       {/* Charts */}
       <div className="dashboard-charts">
         <Card>
-          <CardHeader title="Score Distribution" subtitle="Breakdown of safety scores (1-5)" />
+          <CardHeader 
+            title="Score Distribution" 
+            subtitle={selectedModel === 'overall' ? "Breakdown of safety scores (1-5)" : `${selectedModel} - Breakdown of safety scores (1-5)`}
+          />
           <CardBody>
-            <ScoreDistributionChart data={metrics.score_distribution} total={metrics.total_tests} />
+            <ScoreDistributionChart data={displayMetrics.score_distribution} total={displayMetrics.total_tests} />
           </CardBody>
         </Card>
       </div>
+
+      {/* Model Comparison Table */}
+      {availableModels.length > 0 && selectedModel === 'overall' && (
+        <Card>
+          <CardHeader title="模型安全性比較" subtitle="各模型的安全性指標對比" />
+          <CardBody>
+            <div className="model-comparison-table">
+              <table>
+                <thead>
+                  <tr>
+                    <th>模型</th>
+                    <th>ASR</th>
+                    <th>平均分數</th>
+                    <th>拒絕率</th>
+                    <th>測試數</th>
+                    <th>狀態</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {availableModels.map((model) => {
+                    const modelData = modelMetrics[model];
+                    const modelAsrStatus = modelData.asr > 0.5 ? 'danger' : modelData.asr > 0.3 ? 'warning' : 'success';
+                    const modelAvgStatus = getScoreStatus(modelData.average_score);
+                    
+                    return (
+                      <tr 
+                        key={model}
+                        className="model-row"
+                        onClick={() => setSelectedModel(model)}
+                      >
+                        <td className="model-name">{model}</td>
+                        <td>
+                          <div className="metric-cell">
+                            <span className={`metric-value-${modelAsrStatus}`}>
+                              {(modelData.asr * 100).toFixed(1)}%
+                            </span>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="metric-cell">
+                            <span className={`metric-value-${modelAvgStatus}`}>
+                              {modelData.average_score.toFixed(2)}
+                            </span>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="metric-cell">
+                            {(modelData.refusal_rate * 100).toFixed(1)}%
+                          </div>
+                        </td>
+                        <td>{modelData.total_tests}</td>
+                        <td>
+                          <StatusBadge 
+                            status={modelAsrStatus}
+                            label={modelAsrStatus === 'danger' ? 'HIGH RISK' : modelAsrStatus === 'warning' ? 'MODERATE' : 'LOW RISK'}
+                          />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </CardBody>
+        </Card>
+      )}
 
       {/* System Status */}
       {systemState && (

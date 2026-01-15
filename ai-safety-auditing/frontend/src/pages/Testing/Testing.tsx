@@ -98,7 +98,8 @@ export const Testing: React.FC = () => {
       });
 
       if (result.success) {
-        setAttacks(result.attacks);
+        // 將新攻擊附加到現有列表而不是替換
+        setAttacks(prevAttacks => [...prevAttacks, ...result.attacks]);
         alert(`成功生成 ${result.total} 個攻擊提示詞`);
       }
     } catch (err: any) {
@@ -174,6 +175,28 @@ export const Testing: React.FC = () => {
 
   const clearSelection = () => {
     setSelectedAttacks(new Set());
+  };
+
+  const deleteAttack = (attackId: string) => {
+    setAttacks(prevAttacks => prevAttacks.filter(a => a.id !== attackId));
+    // 同時從選取中移除
+    setSelectedAttacks(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(attackId);
+      return newSet;
+    });
+  };
+
+  const deleteSelectedAttacks = () => {
+    if (selectedAttacks.size === 0) {
+      alert('請先選擇要刪除的攻擊');
+      return;
+    }
+    
+    if (window.confirm(`確定要刪除 ${selectedAttacks.size} 個已選取的攻擊嗎？`)) {
+      setAttacks(prevAttacks => prevAttacks.filter(a => !selectedAttacks.has(a.id)));
+      setSelectedAttacks(new Set());
+    }
   };
 
   const toggleModelSelection = (modelName: string) => {
@@ -428,8 +451,11 @@ export const Testing: React.FC = () => {
               全選
             </Button>
             <Button variant="secondary" size="sm" onClick={clearSelection}>
-              <Trash2 size={16} />
               清除選擇
+            </Button>
+            <Button variant="danger" size="sm" onClick={deleteSelectedAttacks}>
+              <Trash2 size={16} />
+              刪除已選取
             </Button>
           </div>
         </div>
@@ -448,20 +474,31 @@ export const Testing: React.FC = () => {
                 className={`attack-card ${
                   selectedAttacks.has(attack.id) ? 'selected' : ''
                 }`}
-                onClick={() => toggleAttackSelection(attack.id)}
               >
                 <div className="attack-header">
-                  <div className="attack-checkbox">
+                  <div className="attack-checkbox" onClick={() => toggleAttackSelection(attack.id)}>
                     {selectedAttacks.has(attack.id) && <CheckCircle size={20} />}
                   </div>
-                  <div className="attack-info">
+                  <div className="attack-info" onClick={() => toggleAttackSelection(attack.id)}>
                     <div className="attack-meta">
                       <span className="attack-id">#{attack.id}</span>
                       <StatusBadge status="info" label={attack.category} />
                     </div>
                   </div>
+                  <button 
+                    className="delete-attack-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (window.confirm('確定要刪除此攻擊嗎？')) {
+                        deleteAttack(attack.id);
+                      }
+                    }}
+                    title="刪除攻擊"
+                  >
+                    <Trash2 size={16} />
+                  </button>
                 </div>
-                <p className="attack-prompt">{attack.prompt}</p>
+                <p className="attack-prompt" onClick={() => toggleAttackSelection(attack.id)}>{attack.prompt}</p>
               </Card>
             ))}
           </div>
