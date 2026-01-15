@@ -66,6 +66,7 @@ class ModelFactory:
         
         # 創建實例
         try:
+            # 將 provider 信息添加到配置中（如果模型類不支持也不會報錯）
             model = model_class(**resolved_config)
             print(f"✅ 已創建模型: {provider} -> {model.model_name}")
             return model

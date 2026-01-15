@@ -29,7 +29,7 @@ class AnthropicModel(BaseModel):
             max_tokens: 最大 token 數
             **kwargs: 其他參數
         """
-        super().__init__(model_name=model_name)
+        super().__init__(model_name=model_name, provider='anthropic')
         self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         self.client = Anthropic(api_key=self.api_key)
         self.temperature = temperature

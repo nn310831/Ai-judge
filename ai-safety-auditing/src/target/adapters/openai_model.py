@@ -29,7 +29,7 @@ class OpenAIModel(BaseModel):
             max_tokens: 最大 token 數
             **kwargs: 其他參數
         """
-        super().__init__(model_name=model_name)
+        super().__init__(model_name=model_name, provider='openai')
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         self.client = OpenAI(api_key=self.api_key)
         self.temperature = temperature
