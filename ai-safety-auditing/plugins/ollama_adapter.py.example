@@ -1,0 +1,228 @@
+"""
+範例外掛：Ollama 本地模型適配器
+
+這是一個自訂模型適配器的範例，展示如何整合本地運行的 Ollama 模型。
+
+使用方法：
+1. 安裝 Ollama: https://ollama.ai/
+2. 啟動 Ollama 服務
+3. 將此檔案放入 plugins/ 目錄
+4. 系統會自動載入並註冊此適配器
+
+配置範例：
+{
+    "provider": "ollama",
+    "model_name": "llama2",
+    "api_key": "not_required",
+    "base_url": "http://localhost:11434"
+}
+"""
+
+import requests
+from typing import Dict, Any, Optional
+
+from src.target.base_model import BaseModel
+
+
+class OllamaModel(BaseModel):
+    """Ollama 本地模型適配器"""
+    
+    # 註冊時使用的 provider 名稱
+    provider = "ollama"
+    
+    def __init__(
+        self,
+        api_key: str = "not_required",  # Ollama 不需要 API key
+        model_name: str = "llama2",
+        temperature: float = 0.7,
+        max_tokens: int = 1000,
+        base_url: str = "http://localhost:11434",
+        **kwargs
+    ):
+        """
+        初始化 Ollama 模型
+        
+        Args:
+            api_key: API 金鑰（Ollama 不需要，保留以符合介面）
+            model_name: 模型名稱（例如 llama2, mistral, codellama）
+            temperature: 溫度參數
+            max_tokens: 最大 token 數
+            base_url: Ollama 服務的 URL
+            **kwargs: 其他參數
+        """
+        super().__init__(
+            api_key=api_key,
+            model_name=model_name,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs
+        )
+        
+        self.base_url = base_url.rstrip('/')
+        self.generate_endpoint = f"{self.base_url}/api/generate"
+        
+        # 檢查 Ollama 服務是否可用
+        self._check_service()
+    
+    def _check_service(self) -> None:
+        """檢查 Ollama 服務是否可用"""
+        try:
+            response = requests.get(f"{self.base_url}/api/tags", timeout=5)
+            if response.status_code != 200:
+                print(f"⚠️  Ollama 服務可能未啟動，狀態碼: {response.status_code}")
+        except requests.exceptions.RequestException as e:
+            print(f"⚠️  無法連接到 Ollama 服務: {e}")
+            print(f"   請確認 Ollama 已啟動並運行於 {self.base_url}")
+    
+    def _call_api(self, prompt: str, **kwargs) -> Dict[str, Any]:
+        """
+        呼叫 Ollama API
+        
+        Args:
+            prompt: 提示詞
+            **kwargs: 額外參數
+        
+        Returns:
+            API 回應字典
+        """
+        # 準備請求資料
+        payload = {
+            "model": self.model_name,
+            "prompt": prompt,
+            "stream": False,  # 不使用串流模式
+            "options": {
+                "temperature": kwargs.get("temperature", self.temperature),
+                "num_predict": kwargs.get("max_tokens", self.max_tokens)
+            }
+        }
+        
+        # 發送請求
+        response = requests.post(
+            self.generate_endpoint,
+            json=payload,
+            timeout=60  # Ollama 本地運行可能較慢
+        )
+        
+        response.raise_for_status()
+        
+        # 解析回應
+        result = response.json()
+        
+        return {
+            "response": result.get("response", ""),
+            "done": result.get("done", False),
+            "model": result.get("model", self.model_name),
+            "created_at": result.get("created_at"),
+            "context": result.get("context"),  # 用於後續對話
+            "total_duration": result.get("total_duration"),
+            "load_duration": result.get("load_duration"),
+            "prompt_eval_count": result.get("prompt_eval_count"),
+            "eval_count": result.get("eval_count")
+        }
+    
+    def estimate_cost(self, prompt_tokens: int, completion_tokens: int) -> float:
+        """
+        Ollama 是本地運行，沒有 API 費用
+        
+        Returns:
+            0.0（免費）
+        """
+        return 0.0
+    
+    def list_available_models(self) -> list:
+        """
+        列出本地已下載的模型
+        
+        Returns:
+            模型列表
+        """
+        try:
+            response = requests.get(f"{self.base_url}/api/tags", timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                return [model["name"] for model in data.get("models", [])]
+            else:
+                return []
+        except Exception as e:
+            print(f"獲取模型列表失敗: {e}")
+            return []
+
+
+# 可以在同一個檔案中定義多個模型類別
+class OllamaChat(OllamaModel):
+    """Ollama Chat 格式適配器（支援對話歷史）"""
+    
+    provider = "ollama_chat"
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.chat_endpoint = f"{self.base_url}/api/chat"
+        self.conversation_history = []
+    
+    def _call_api(self, prompt: str, **kwargs) -> Dict[str, Any]:
+        """
+        使用 Chat API
+        
+        Args:
+            prompt: 使用者訊息
+            **kwargs: 額外參數
+        
+        Returns:
+            API 回應
+        """
+        # 添加訊息到歷史
+        self.conversation_history.append({
+            "role": "user",
+            "content": prompt
+        })
+        
+        # 準備請求
+        payload = {
+            "model": self.model_name,
+            "messages": self.conversation_history,
+            "stream": False,
+            "options": {
+                "temperature": kwargs.get("temperature", self.temperature),
+                "num_predict": kwargs.get("max_tokens", self.max_tokens)
+            }
+        }
+        
+        response = requests.post(
+            self.chat_endpoint,
+            json=payload,
+            timeout=60
+        )
+        
+        response.raise_for_status()
+        result = response.json()
+        
+        # 將助手回應加入歷史
+        assistant_message = result.get("message", {}).get("content", "")
+        self.conversation_history.append({
+            "role": "assistant",
+            "content": assistant_message
+        })
+        
+        return {
+            "response": assistant_message,
+            "done": result.get("done", False),
+            "model": result.get("model", self.model_name)
+        }
+    
+    def reset_conversation(self):
+        """重置對話歷史"""
+        self.conversation_history = []
+
+
+# 這個函數會在外掛載入時被呼叫（可選）
+def plugin_info():
+    """返回外掛資訊"""
+    return {
+        "name": "Ollama Adapter",
+        "version": "1.0.0",
+        "description": "Ollama 本地模型適配器",
+        "author": "Your Name",
+        "models": ["OllamaModel", "OllamaChat"],
+        "requires": ["requests"],
+        "homepage": "https://ollama.ai/"
+    }
