@@ -9,6 +9,7 @@ import { Models } from './pages/Models';
 import { Testing } from './pages/Testing';
 import { Results } from './pages/Results';
 import { Settings } from './pages/Settings';
+import { AddProvider } from './pages/AddProvider/AddProvider';
 import './styles/theme.css';
 import './styles/globals.css';
 
@@ -20,6 +21,7 @@ function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/testing" element={<Testing />} />
           <Route path="/models" element={<Models />} />
+          <Route path="/providers" element={<AddProvider />} />
           <Route path="/results" element={<Results />} />
           <Route path="/settings" element={<Settings />} />
         </Route>

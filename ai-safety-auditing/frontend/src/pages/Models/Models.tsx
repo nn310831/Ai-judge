@@ -24,7 +24,6 @@ interface LoadedModel {
 export const Models: React.FC = () => {
   const [loadedModels, setLoadedModels] = useState<LoadedModel[]>([]);
   const [providers, setProviders] = useState<string[]>([]);
-  const [plugins, setPlugins] = useState<any[]>([]);
   const [config, setConfig] = useState<ModelConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingConfig, setLoadingConfig] = useState(false);
@@ -38,16 +37,14 @@ export const Models: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const [modelsRes, providersRes, pluginsRes, configRes] = await Promise.all([
+      const [modelsRes, providersRes, configRes] = await Promise.all([
         modelService.getLoadedModels(),
         modelService.getProviders(),
-        modelService.getPlugins(),
         configService.getConfig(),
       ]);
 
       setLoadedModels((modelsRes.models as unknown as LoadedModel[]) || []);
       setProviders(providersRes.providers);
-      setPlugins(pluginsRes.plugins);
       if (configRes.exists && configRes.models) {
         setConfig(configRes.models);
       }
@@ -70,16 +67,6 @@ export const Models: React.FC = () => {
       alert('載入配置失敗: ' + err.message);
     } finally {
       setLoadingConfig(false);
-    }
-  };
-
-  const handleLoadAllPlugins = async () => {
-    try {
-      const result = await modelService.loadAllPlugins();
-      await loadData();
-      alert(`載入完成：成功 ${result.loaded} 個，失敗 ${result.failed} 個`);
-    } catch (err: any) {
-      alert('載入外掛失敗: ' + err.message);
     }
   };
 
@@ -188,45 +175,6 @@ export const Models: React.FC = () => {
             ))}
           </div>
         </Card>
-      </section>
-
-      {/* Loaded Plugins */}
-      <section className="models-section">
-        <div className="section-header">
-          <h2>已載入的外掛</h2>
-          <div className="section-actions">
-            <StatusBadge status="info" label={`${plugins.length} 個外掃`} />
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleLoadAllPlugins}
-            >
-              <Plus size={16} />
-              載入所有外掛
-            </Button>
-          </div>
-        </div>
-
-        {plugins.length === 0 ? (
-          <Card className="empty-state">
-            <Package size={48} />
-            <h3>尚未載入任何外掛</h3>
-            <Button variant="secondary" onClick={handleLoadAllPlugins}>
-              載入外掛
-            </Button>
-          </Card>
-        ) : (
-          <div className="plugins-grid">
-            {plugins.map((plugin, index) => (
-              <Card key={index} className="plugin-card">
-                <div className="plugin-info">
-                  <CheckCircle className="plugin-icon" size={20} />
-                  <span>{plugin.name || plugin.file_path || `Plugin ${index + 1}`}</span>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
       </section>
 
       {/* Configuration Preview */}

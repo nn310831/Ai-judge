@@ -8,7 +8,8 @@ import {
   Shield, 
   Target, 
   Settings,
-  Database
+  Database,
+  Package
 } from 'lucide-react';
 import './Sidebar.css';
 
@@ -16,6 +17,7 @@ const navigation = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard },
   { name: 'Testing', path: '/testing', icon: Target },
   { name: 'Models', path: '/models', icon: Database },
+  { name: 'Provider 管理', path: '/providers', icon: Package },
   { name: 'Results', path: '/results', icon: Shield },
   { name: 'Settings', path: '/settings', icon: Settings },
 ];

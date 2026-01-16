@@ -11,6 +11,9 @@ from src.target.base_model import BaseModel
 class GeminiModel(BaseModel):
     """Google Gemini 模型適配器"""
     
+    # 類別屬性：用於 PluginLoader 註冊
+    provider = 'gemini'
+    
     def __init__(
         self,
         model_name: str = "gemini-pro",

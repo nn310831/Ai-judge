@@ -32,6 +32,13 @@ async def lifespan(app: FastAPI):
     # 初始化全域狀態管理器
     app.state.state_manager = StateManager()
     
+    # 載入所有外掛
+    try:
+        plugins_result = app.state.state_manager.load_plugins()
+        logger.info(f"✅ 已載入 {plugins_result.get('loaded', 0)} 個外掛")
+    except Exception as e:
+        logger.warning(f"⚠️ 載入外掛時發生錯誤: {e}")
+    
     logger.info("✅ API 伺服器已就緒")
     yield
     
