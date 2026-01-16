@@ -260,7 +260,7 @@ export const AddProvider: React.FC = () => {
               <li>上傳後，系統會自動儲存到 <code>plugins/</code> 目錄並載入</li>
             </ol>
 
-            <h4>範例代碼</h4>
+            <h4>程式結構</h4>
             <pre className="example-code">{`from src.target.base_model import BaseModel
 import httpx
 
@@ -278,6 +278,66 @@ class MyCustomModel(BaseModel):
                 headers={"Authorization": f"Bearer {self.api_key}"}
             )
             return response.json()["text"]`}</pre>
+            <h4>範例程式</h4>
+            <pre className="example-code">{`"""
+OpenAI 模型適配器
+"""
+
+from openai import OpenAI
+from typing import Dict, Any
+import os
+from src.target.base_model import BaseModel
+
+
+class OpenAIModel(BaseModel):
+    """OpenAI GPT 模型適配器"""
+    
+    def __init__(
+        self,
+        model_name: str,
+        api_key: str = None,
+        temperature: float = 0.0,
+        max_tokens: int = 1000,
+        **kwargs
+    ):
+        """
+        初始化 OpenAI 模型
+        
+        Args:
+            model_name: 模型名稱（如 "gpt-4", "gpt-3.5-turbo"）
+            api_key: OpenAI API Key
+            temperature: 溫度參數（0.0-2.0）
+            max_tokens: 最大 token 數
+            **kwargs: 其他參數
+        """
+        super().__init__(model_name=model_name, provider='openai')
+        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
+        self.client = OpenAI(api_key=self.api_key)
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+        self.extra_params = kwargs
+    
+    def _call_api(self, prompt: str) -> Dict[str, Any]:
+        """實作 OpenAI API 呼叫"""
+        response = self.client.chat.completions.create(
+            model=self.model_name,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=self.temperature,
+            max_tokens=self.max_tokens,
+            **self.extra_params
+        )
+        
+        return {
+            "response": response.choices[0].message.content,
+            "model": self.model_name,
+            "usage": {
+                "prompt_tokens": response.usage.prompt_tokens,
+                "completion_tokens": response.usage.completion_tokens,
+                "total_tokens": response.usage.total_tokens
+            },
+            "finish_reason": response.choices[0].finish_reason
+        }
+`}</pre>
           </div>
         </Card>
       </section>
