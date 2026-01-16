@@ -6,7 +6,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { RefreshCw, Plus, Package, CheckCircle, XCircle, Loader } from 'lucide-react';
+import { RefreshCw, Package, CheckCircle, XCircle, Loader } from 'lucide-react';
 import { modelService, configService } from '@/api';
 import { Card } from '@/components/Card/Card';
 import { Button } from '@/components/Button/Button';
@@ -23,7 +23,6 @@ interface LoadedModel {
 
 export const Models: React.FC = () => {
   const [loadedModels, setLoadedModels] = useState<LoadedModel[]>([]);
-  const [providers, setProviders] = useState<string[]>([]);
   const [config, setConfig] = useState<ModelConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingConfig, setLoadingConfig] = useState(false);
@@ -37,14 +36,12 @@ export const Models: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const [modelsRes, providersRes, configRes] = await Promise.all([
+      const [modelsRes, configRes] = await Promise.all([
         modelService.getLoadedModels(),
-        modelService.getProviders(),
         configService.getConfig(),
       ]);
 
       setLoadedModels((modelsRes.models as unknown as LoadedModel[]) || []);
-      setProviders(providersRes.providers);
       if (configRes.exists && configRes.models) {
         setConfig(configRes.models);
       }
@@ -156,25 +153,6 @@ export const Models: React.FC = () => {
             ))}
           </div>
         )}
-      </section>
-
-      {/* Available Providers */}
-      <section className="models-section">
-        <div className="section-header">
-          <h2>可用的 Providers</h2>
-          <StatusBadge status="info" label={`${providers.length} 個`} />
-        </div>
-
-        <Card className="providers-card">
-          <div className="providers-list">
-            {providers.map((provider, index) => (
-              <div key={index} className="provider-item">
-                <Package size={20} />
-                <span>{provider}</span>
-              </div>
-            ))}
-          </div>
-        </Card>
       </section>
 
       {/* Configuration Preview */}

@@ -4,11 +4,13 @@
  * 上傳自定義 Model Provider 的頁面
  */
 
-import React, { useState } from 'react';
-import { Upload, Code, CheckCircle, XCircle, Loader, AlertCircle, FileCode } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Upload, Code, CheckCircle, XCircle, Loader, AlertCircle, FileCode, Package } from 'lucide-react';
 import Editor from '@monaco-editor/react';
 import { Card } from '@/components/Card/Card';
 import { Button } from '@/components/Button/Button';
+import { StatusBadge } from '@/components/StatusBadge/StatusBadge';
+import { modelService } from '@/api';
 import './AddProvider.css';
 
 export const AddProvider: React.FC = () => {
@@ -17,6 +19,23 @@ export const AddProvider: React.FC = () => {
   const [dependencies, setDependencies] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [providers, setProviders] = useState<string[]>([]);
+  const [loadingProviders, setLoadingProviders] = useState(true);
+
+  useEffect(() => {
+    loadProviders();
+  }, []);
+
+  const loadProviders = async () => {
+    try {
+      const result = await modelService.getProviders();
+      setProviders(result.providers);
+    } catch (error) {
+      console.error('載入 providers 失敗:', error);
+    } finally {
+      setLoadingProviders(false);
+    }
+  };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -95,6 +114,36 @@ export const AddProvider: React.FC = () => {
           <p className="page-subtitle">上傳自定義 Model Provider</p>
         </div>
       </header>
+
+      {/* Available Providers */}
+      <section className="providers-section">
+        <Card className="providers-card">
+          <div className="section-header">
+            <h2>可用的 Providers</h2>
+            <StatusBadge status="info" label={`${providers.length} 個`} />
+          </div>
+          <div className="providers-list">
+            {loadingProviders ? (
+              <div className="loading-state">
+                <Loader className="spinner" size={20} />
+                <span>載入中...</span>
+              </div>
+            ) : providers.length === 0 ? (
+              <div className="empty-state">
+                <Package size={24} />
+                <span>無可用 Providers</span>
+              </div>
+            ) : (
+              providers.map((provider, index) => (
+                <div key={index} className="provider-item">
+                  <Package size={20} />
+                  <span>{provider}</span>
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
+      </section>
 
       {/* Upload Result Banner */}
       {uploadResult && (
