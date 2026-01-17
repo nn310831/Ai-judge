@@ -52,6 +52,14 @@ export const Testing: React.FC = () => {
     loadActiveTests();
   }, []);
 
+    useEffect(() => {
+    const interval = setInterval(() => {
+      loadActiveTests();
+    }, 2000); // 每 2 秒更新一次
+
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     if (selectedCategory === 'all') {
       setFilteredAttacks(attacks);
